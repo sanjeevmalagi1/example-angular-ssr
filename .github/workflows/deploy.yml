@@ -27,22 +27,16 @@ jobs:
           npm install
           npm run build
 
-      # Step 4: Archive the `dist` folder as an artifact
-      - name: Archive dist folder
-        uses: actions/upload-artifact@v3
-        with:
-          name: dist-folder
-          path: dist/
-
-      # Step 5: Download the artifact and build the Docker image
-      - name: Download dist artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: dist-folder
-
       - name: Build Docker image
         run: |
           docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       # Step 6: Log in to AWS ECR
       - name: Log in to AWS ECR
@@ -54,10 +48,37 @@ jobs:
         run: |
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
 
-      # Step 8: Deploy to AWS ECS
-      - name: Update ECS Service
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          cluster: ${{ secrets.ECS_CLUSTER_NAME }}
-          service: ${{ secrets.ECS_SERVICE_NAME }}
-          force-new-deployment: true
+      # - name: Update ECS Task Definition
+      #   id: update-task
+      #   run: |
+      #     # Fetch the current task definition
+      #     aws ecs describe-task-definition --task-definition angular-ssr-td > task-definition.json
+
+      #     # Replace the container image with the new ECR image URI
+      #     IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest"
+      #     jq --arg IMAGE_URI "$IMAGE_URI" '.taskDefinition.containerDefinitions[0].image = $IMAGE_URI' task-definition.json > new-task-definition.json
+
+      #     # Register the updated task definition
+      #     TASK_DEFINITION_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
+
+      #     echo "Task Definition ARN: $TASK_DEFINITION_ARN"
+      #     echo "::set-output name=task-definition-arn::$TASK_DEFINITION_ARN"
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+            --service ${{ secrets.ECS_SERVICE_NAME }} \
+            --force-new-deployment
+
+          echo "Deployment to ECS triggered successfully."
+
+
+      # # Step 8: Deploy to AWS ECS
+      # - name: Update ECS Service
+      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      #   with:
+      #     task-definition: angular-ssr-td
+      #     cluster: ${{ secrets.ECS_CLUSTER_NAME }}
+      #     service: ${{ secrets.ECS_SERVICE_NAME }}
+      #     force-new-deployment: true
