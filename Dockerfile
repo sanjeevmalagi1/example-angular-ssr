@@ -1,13 +1,17 @@
 FROM node:22-alpine
 
-# Set the working directory
+# Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# Copy source files and build the application
-COPY dist .
+COPY package.json package-lock.json ./
 
-# Expose the port your server listens on
+COPY . .
+
+RUN npm install
+
+RUN npm run build
+
 EXPOSE 4000
 
 # Command to start the SSR server
-CMD ["node", "angular-ssr/server/server.mjs"]
+CMD ["npm", "run", "serve:ssr:angular-ssr"]

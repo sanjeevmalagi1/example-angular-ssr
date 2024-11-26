@@ -15,18 +15,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2: Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 22
-
-      # Step 3: Install dependencies and build the application
-      - name: Install dependencies and build
-        run: |
-          npm install
-          npm run build
-
       - name: Build Docker image
         run: |
           docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest .
@@ -48,22 +36,6 @@ jobs:
         run: |
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
 
-      # - name: Update ECS Task Definition
-      #   id: update-task
-      #   run: |
-      #     # Fetch the current task definition
-      #     aws ecs describe-task-definition --task-definition angular-ssr-td > task-definition.json
-
-      #     # Replace the container image with the new ECR image URI
-      #     IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest"
-      #     jq --arg IMAGE_URI "$IMAGE_URI" '.taskDefinition.containerDefinitions[0].image = $IMAGE_URI' task-definition.json > new-task-definition.json
-
-      #     # Register the updated task definition
-      #     TASK_DEFINITION_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
-
-      #     echo "Task Definition ARN: $TASK_DEFINITION_ARN"
-      #     echo "::set-output name=task-definition-arn::$TASK_DEFINITION_ARN"
-
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
@@ -72,13 +44,3 @@ jobs:
             --force-new-deployment
 
           echo "Deployment to ECS triggered successfully."
-
-
-      # # Step 8: Deploy to AWS ECS
-      # - name: Update ECS Service
-      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      #   with:
-      #     task-definition: angular-ssr-td
-      #     cluster: ${{ secrets.ECS_CLUSTER_NAME }}
-      #     service: ${{ secrets.ECS_SERVICE_NAME }}
-      #     force-new-deployment: true
